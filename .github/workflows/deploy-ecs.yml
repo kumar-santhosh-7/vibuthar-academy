@@ -13,6 +13,12 @@ on:
   push:
     branches: [main, deployment]
   workflow_dispatch:
+    inputs:
+      branch:
+        description: Git branch to build and deploy to ECS
+        required: true
+        type: string
+        default: deployment
 
 concurrency:
   group: deploy-ecs-ap-south-1
@@ -36,6 +42,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || github.ref }}
+
+      - name: Deploying ref
+        run: echo "Deploying $(git rev-parse --abbrev-ref HEAD) @ $(git rev-parse HEAD)"
 
       - name: Configure AWS credentials (GitHub OIDC)
         uses: aws-actions/configure-aws-credentials@v4
