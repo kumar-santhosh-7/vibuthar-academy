@@ -10,10 +10,6 @@ terraform {
       source  = "hashicorp/random"
       version = "~> 3.6"
     }
-    tls = {
-      source  = "hashicorp/tls"
-      version = "~> 4.0"
-    }
   }
 
   # Uncomment after creating the bucket/table yourself. Not created here because

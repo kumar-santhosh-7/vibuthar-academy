@@ -158,16 +158,20 @@ variable "app_cors_allowed_origins" {
   type        = string
 }
 
+# Kept so existing terraform.tfvars still apply after OIDC was removed.
 variable "github_repository" {
-  description = "GitHub org/repo allowed to assume the deploy role via OIDC. Matches origin remote kumar-santhosh-7/vibuthar-academy."
-  type        = string
-  default     = "kumar-santhosh-7/vibuthar-academy"
+  type    = string
+  default = "kumar-santhosh-7/vibuthar-academy"
+}
+
+variable "github_repositories" {
+  type    = list(string)
+  default = []
 }
 
 variable "create_github_oidc_provider" {
-  description = "Set false if the account already has token.actions.githubusercontent.com as an OIDC provider."
-  type        = bool
-  default     = true
+  type    = bool
+  default = true
 }
 
 variable "spring_jpa_hibernate_ddl_auto" {

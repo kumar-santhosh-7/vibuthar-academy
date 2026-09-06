@@ -26,9 +26,15 @@ output "alb_dns_name" {
   value = aws_lb.app.dns_name
 }
 
-output "github_actions_role_arn" {
-  description = "Set this as GitHub Actions secret AWS_ROLE_ARN."
-  value       = aws_iam_role.github_actions.arn
+output "github_actions_access_key_id" {
+  description = "GitHub Actions secret AWS_ACCESS_KEY_ID."
+  value       = aws_iam_access_key.github_actions.id
+}
+
+output "github_actions_secret_access_key" {
+  description = "GitHub Actions secret AWS_SECRET_ACCESS_KEY."
+  value       = aws_iam_access_key.github_actions.secret
+  sensitive   = true
 }
 
 output "ecs_autoscaling_group_name" {

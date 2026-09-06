@@ -1,48 +1,3 @@
-data "tls_certificate" "github" {
-  url = "https://token.actions.githubusercontent.com"
-}
-
-data "aws_iam_openid_connect_provider" "github" {
-  count = var.create_github_oidc_provider ? 0 : 1
-  url   = "https://token.actions.githubusercontent.com"
-}
-
-resource "aws_iam_openid_connect_provider" "github" {
-  count = var.create_github_oidc_provider ? 1 : 0
-
-  url             = "https://token.actions.githubusercontent.com"
-  client_id_list  = ["sts.amazonaws.com"]
-  thumbprint_list = [data.tls_certificate.github.certificates[0].sha1_fingerprint]
-}
-
-data "aws_iam_policy_document" "github_assume" {
-  statement {
-    actions = ["sts:AssumeRoleWithWebIdentity"]
-
-    principals {
-      type        = "Federated"
-      identifiers = [local.github_oidc_provider_arn]
-    }
-
-    condition {
-      test     = "StringEquals"
-      variable = "token.actions.githubusercontent.com:aud"
-      values   = ["sts.amazonaws.com"]
-    }
-
-    condition {
-      test     = "StringLike"
-      variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repository}:*"]
-    }
-  }
-}
-
-resource "aws_iam_role" "github_actions" {
-  name               = "${local.name}-github-actions"
-  assume_role_policy = data.aws_iam_policy_document.github_assume.json
-}
-
 data "aws_iam_policy_document" "github_actions" {
   statement {
     sid       = "EcrAuth"
@@ -92,10 +47,18 @@ data "aws_iam_policy_document" "github_actions" {
   }
 }
 
-resource "aws_iam_role_policy" "github_actions" {
+resource "aws_iam_user" "github_actions" {
+  name = "${local.name}-github-actions"
+}
+
+resource "aws_iam_user_policy" "github_actions" {
   name   = "deploy"
-  role   = aws_iam_role.github_actions.id
+  user   = aws_iam_user.github_actions.name
   policy = data.aws_iam_policy_document.github_actions.json
+}
+
+resource "aws_iam_access_key" "github_actions" {
+  user = aws_iam_user.github_actions.name
 }
 
 data "aws_iam_policy_document" "ecs_execution_assume" {

@@ -17,12 +17,6 @@ app_cors_allowed_origins   = "https://yourdomain.com"
 # ecs_asg_desired_capacity   = 1
 # db_backup_retention_period = 0
 
-# GitHub repo allowed to assume the deploy IAM role (matches origin remote).
-github_repository = "kumar-santhosh-7/vibuthar-academy"
-
-# Set false if this AWS account already has a GitHub OIDC provider.
-create_github_oidc_provider = true
-
 # Deployment guide MySQL 8 / academy_db. Set false to point at an existing DB.
 create_rds = true
 
