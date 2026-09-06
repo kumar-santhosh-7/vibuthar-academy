@@ -1,0 +1,48 @@
+# MySQL 8.x + academy_db: deployment guide.
+# Profile defaults to `dev` because:
+# - prod uses ddl-auto=validate and needs tables to already exist
+# - the guide says to run `dev` (ddl-auto=update) first to create schema
+# - application-dev.properties already has JWT, mail, and CORS
+# Switch with: SPRING_PROFILES_ACTIVE=prod (then you must pass the prod env vars
+# listed in the deployment guide; they are not in application-prod.properties).
+#
+# MySQL credentials match application-dev.properties (root, empty password).
+# MySQL port 3306 is not published on the host so it does not collide with a
+# local MySQL. The app reaches MySQL on the Compose network as hostname `mysql`.
+#
+#   docker compose up --build
+
+services:
+  mysql:
+    image: mysql:8
+    environment:
+      MYSQL_DATABASE: academy_db
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      TZ: Asia/Kolkata
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "--silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/academy_db?useSSL=false&serverTimezone=Asia/Kolkata&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ""
+      TZ: Asia/Kolkata
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
