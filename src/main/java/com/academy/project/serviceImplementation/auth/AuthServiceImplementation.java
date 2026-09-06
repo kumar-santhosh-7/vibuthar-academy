@@ -9,6 +9,7 @@ import com.academy.project.dto.register.RegisterRequest;
 import com.academy.project.dto.response.SubscribedCourseResponse;
 import com.academy.project.dto.response.UserResponse;
 import com.academy.project.entity.course.Course;
+import com.academy.project.entity.course.CourseVideo;
 import com.academy.project.entity.subscription.CourseSubscription;
 import com.academy.project.entity.user.User;
 import com.academy.project.entity.user.UserRole;
@@ -17,6 +18,7 @@ import com.academy.project.entity.user.UserStatus;
 import com.academy.project.enums.SubscriptionStatus;
 import com.academy.project.exception.ApiException;
 import com.academy.project.repository.course.CourseRepository;
+import com.academy.project.repository.course.CourseVideoRepository;
 import com.academy.project.repository.subscription.CourseSubscriptionRepository;
 import com.academy.project.repository.user.UserRepository;
 import com.academy.project.repository.user.UserSessionRepository;
@@ -52,6 +54,7 @@ public class AuthServiceImplementation implements AuthService {
     private final UserSessionRepository userSessionRepository;
     private final CourseSubscriptionRepository courseSubscriptionRepository;
     private final CourseRepository courseRepository;
+    private final CourseVideoRepository courseVideoRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider jwtTokenProvider;
@@ -202,13 +205,25 @@ public class AuthServiceImplementation implements AuthService {
         Map<String, Course> coursesById = courseRepository.findByCourseIdIn(courseIds).stream()
                 .collect(Collectors.toMap(Course::getCourseId, Function.identity()));
 
+        List<Long> coursePks = coursesById.values().stream()
+                .map(Course::getId)
+                .toList();
+
+        Map<Long, List<CourseVideo>> videosByCoursePk = coursePks.isEmpty()
+                ? Collections.emptyMap()
+                : courseVideoRepository.findByCourseIdInOrderBySortOrderAsc(coursePks).stream()
+                        .collect(Collectors.groupingBy(CourseVideo::getCourseId));
+
         return subscriptions.stream()
                 .map(subscription -> {
                     Course course = coursesById.get(subscription.getCourseId());
                     if (course == null) {
                         return null;
                     }
-                    return SubscribedCourseResponse.from(course, subscription.getSubscribedAt());
+                    List<CourseVideo> videos = videosByCoursePk.getOrDefault(
+                            course.getId(), Collections.emptyList()
+                    );
+                    return SubscribedCourseResponse.from(course, subscription.getSubscribedAt(), videos);
                 })
                 .filter(Objects::nonNull)
                 .toList();

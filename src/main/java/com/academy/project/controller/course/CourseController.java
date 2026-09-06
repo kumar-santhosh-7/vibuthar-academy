@@ -44,7 +44,6 @@ public class CourseController {
     }
 
     @GetMapping("/admin/courses")
-    @PreAuthorize("hasAnyRole('ADMIN','TRAINER')")
     public ResponseEntity<ApiResponse<PagedResponse<CourseResponse>>> listAdminCourses(
             @RequestParam(required = false) CourseStatus status,
             @RequestParam(required = false) String search,
@@ -57,7 +56,7 @@ public class CourseController {
     @PostMapping("/admin/courses/{courseId}/videos")
     @PreAuthorize("hasAnyRole('ADMIN','TRAINER')")
     public ResponseEntity<ApiResponse<CourseVideoResponse>> addVideoToCourse(
-            @PathVariable Long courseId,
+            @PathVariable String courseId,
             @Valid @RequestBody AddCourseVideoRequest request) {
         CourseVideoResponse response = courseService.addVideoToCourse(courseId, request);
         return ResponseEntity.status(HttpStatus.CREATED)

@@ -18,6 +18,9 @@ public class UserResponse {
     private String name;
     private String email;
     private String phone;
+    private String ugDegree;
+    private String pgDegree;
+    private String address;
     private UserRole role;
     private UserStatus status;
     @Builder.Default
@@ -34,6 +37,9 @@ public class UserResponse {
                 .name(user.getName())
                 .email(user.getEmail())
                 .phone(user.getPhone())
+                .ugDegree(user.getUgDegree())
+                .pgDegree(user.getPgDegree())
+                .address(user.getAddress())
                 .role(user.getRole())
                 .status(user.getStatus())
                 .subscribedCourses(subscribedCourses != null ? subscribedCourses : Collections.emptyList())

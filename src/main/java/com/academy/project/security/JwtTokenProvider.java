@@ -25,7 +25,18 @@ public class JwtTokenProvider {
             @Value("${app.jwt.secret}") String secret,
             @Value("${app.jwt.access-token-expiration-ms}") long accessTokenExpirationMs,
             @Value("${app.jwt.refresh-token-expiration-ms}") long refreshTokenExpirationMs) {
-        this.signingKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalStateException(
+                    "app.jwt.secret is missing. Set JWT_SECRET (or app.jwt.secret) on the server.");
+        }
+        byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
+        // HS256 requires >= 256 bits (32 bytes)
+        if (keyBytes.length < 32) {
+            throw new IllegalStateException(
+                    "app.jwt.secret is too short (" + keyBytes.length
+                            + " bytes). Use a secret of at least 32 characters.");
+        }
+        this.signingKey = Keys.hmacShaKeyFor(keyBytes);
         this.accessTokenExpirationMs = accessTokenExpirationMs;
         this.refreshTokenExpirationMs = refreshTokenExpirationMs;
     }

@@ -70,13 +70,12 @@ public class CourseServiceImplementation implements CourseService {
 
     @Override
     @Transactional
-    public CourseVideoResponse addVideoToCourse(Long courseId, AddCourseVideoRequest request) {
-        if (!courseRepository.existsById(courseId)) {
-            throw ApiException.notFound("Course not found");
-        }
+    public CourseVideoResponse addVideoToCourse(String courseId, AddCourseVideoRequest request) {
+        Course course = courseRepository.findByCourseId(courseId)
+                .orElseThrow(() -> ApiException.notFound("Course not found"));
 
         CourseVideo video = CourseVideo.builder()
-                .courseId(courseId)
+                .courseId(course.getId())
                 .title(request.getTitle())
                 .videoUrl(request.getVideoUrl())
                 .sortOrder(request.getSortOrder() != null ? request.getSortOrder() : 0)

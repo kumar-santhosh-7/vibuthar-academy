@@ -48,3 +48,6 @@ override.tf.json
 terraform.tfvars
 *.tfvars.json
 .terraform.tfvars
+### Uploaded gallery images ###
+/images/
+!/images/.gitkeep

@@ -13,5 +13,5 @@ public interface CourseService {
 
     PagedResponse<CourseResponse> listCourses(CourseStatus status, String search, int page, int size);
 
-    CourseVideoResponse addVideoToCourse(Long courseId, AddCourseVideoRequest request);
+    CourseVideoResponse addVideoToCourse(String courseId, AddCourseVideoRequest request);
 }

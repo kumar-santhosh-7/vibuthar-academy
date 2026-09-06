@@ -35,6 +35,15 @@ public class User {
     @Column(unique = true, length = 20)
     private String phone;
 
+    @Column(name = "ug_degree", length = 150)
+    private String ugDegree;
+
+    @Column(name = "pg_degree", length = 150)
+    private String pgDegree;
+
+    @Column(length = 500)
+    private String address;
+
     @Column(name = "password_hash", length = 255)
     private String passwordHash;
 
