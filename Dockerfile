@@ -52,8 +52,8 @@ COPY src/main ./src/main
 
 RUN --mount=type=cache,target=/root/.m2 \
     ./mvnw -B clean package -DskipTests \
-    && java -Djarmode=tools -jar target/project-0.0.1-SNAPSHOT.jar \
-         extract --layers --destination /extracted
+    && cp target/project-0.0.1-SNAPSHOT.jar /tmp/application.jar \
+    && java -Djarmode=tools -jar /tmp/application.jar extract --layers --destination /extracted
 
 # -----------------------------------------------------------------------------
 # Stage 2: runtime JRE only, layered jar (Spring Boot 4.1 jarmode=tools)
