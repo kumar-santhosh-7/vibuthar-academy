@@ -20,10 +20,9 @@ resource "aws_db_instance" "app" {
   engine_version = "8.0"
   instance_class = var.db_instance_class
 
-  allocated_storage     = 20
-  max_allocated_storage = 100
-  storage_type          = "gp3"
-  storage_encrypted     = true
+  allocated_storage = 20
+  storage_type      = "gp3"
+  storage_encrypted = true
 
   db_name  = var.db_name
   username = var.db_username
@@ -34,7 +33,7 @@ resource "aws_db_instance" "app" {
   publicly_accessible    = false
   multi_az               = false
 
-  backup_retention_period = 7
+  backup_retention_period = var.db_backup_retention_period
   skip_final_snapshot     = true
   deletion_protection     = false
 

@@ -23,15 +23,15 @@ variable "ecs_cpu" {
 }
 
 variable "ecs_memory" {
-  description = "Task memory (MiB) for ECS on EC2."
+  description = "Task memory (MiB). t3.small has 2048 MiB total; 2048 would leave no room for the OS and ECS agent, so this is 1024."
   type        = string
-  default     = "2048"
+  default     = "1024"
 }
 
 variable "ecs_instance_type" {
-  description = "EC2 instance type for the ECS container instances. Not specified in the request; t3.medium fits the 1024 CPU / 2048 MiB task plus the ECS agent."
+  description = "EC2 instance type for ECS container instances. t3.small is Free Tier eligible in ap-south-1 (2 vCPU, 2 GiB)."
   type        = string
-  default     = "t3.medium"
+  default     = "t3.small"
 }
 
 variable "ecs_asg_min_size" {
@@ -41,9 +41,9 @@ variable "ecs_asg_min_size" {
 }
 
 variable "ecs_asg_max_size" {
-  description = "Maximum EC2 instances in the ECS Auto Scaling group."
+  description = "Maximum EC2 instances in the ECS Auto Scaling group. Default 1 so managed scaling does not launch a second instance on a Free Tier account."
   type        = number
-  default     = 2
+  default     = 1
 }
 
 variable "ecs_asg_desired_capacity" {
@@ -86,6 +86,12 @@ variable "db_instance_class" {
   description = "RDS instance class. Not specified in the request."
   type        = string
   default     = "db.t3.micro"
+}
+
+variable "db_backup_retention_period" {
+  description = "RDS automated backup retention in days. 7 was rejected for this Free Tier account (FreeTierRestrictionError). 0 disables automated backups."
+  type        = number
+  default     = 0
 }
 
 variable "existing_db_url" {
