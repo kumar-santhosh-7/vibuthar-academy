@@ -2,7 +2,11 @@
 #
 # Before the first run:
 # 1. terraform -chdir=terraform apply
-# 2. GitHub secret AWS_ROLE_ARN = terraform output github_actions_role_arn
+# 2. GitHub repo Settings → Secrets and variables → Actions → Secrets
+#    Name: AWS_ROLE_ARN
+#    Value: terraform output -raw github_actions_role_arn
+#    Must be a Secret, not a Variable. Must be a repository secret (this
+#    workflow does not use a GitHub Environment).
 #
 # Names below match terraform/variables.tf defaults (project_name = ias-academy).
 # If you change project_name, change these env values too.
@@ -39,17 +43,29 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || github.ref }}
 
       - name: Deploying ref
         run: echo "Deploying $(git rev-parse --abbrev-ref HEAD) @ $(git rev-parse HEAD)"
 
+      - name: Require AWS_ROLE_ARN secret
+        env:
+          AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+        run: |
+          if [ -z "$AWS_ROLE_ARN" ]; then
+            echo "::error::Repository secret AWS_ROLE_ARN is empty. Add it under Settings → Secrets and variables → Actions → Secrets. Value: terraform output -raw github_actions_role_arn"
+            exit 1
+          fi
+
       - name: Configure AWS credentials (GitHub OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
