@@ -1,0 +1,32 @@
+# Copy to terraform.tfvars (gitignored). Do not commit real secrets.
+
+aws_region   = "ap-south-1"
+project_name = "ias-academy"
+
+# Required at process start (missing from application-prod.properties).
+app_jwt_secret             = "replace-with-a-long-secret"
+spring_mail_host           = "smtp.example.com"
+spring_mail_username       = "replace-me"
+spring_mail_password       = "replace-me"
+academy_contact_email      = "replace-me@example.com"
+app_cors_allowed_origins   = "https://yourdomain.com"
+
+# ECS on EC2. t3.small is Free Tier eligible (2 vCPU, 2 GiB).
+# ecs_instance_type          = "t3.small"
+# ecs_memory                 = "1024"
+# ecs_asg_desired_capacity   = 1
+# db_backup_retention_period = 0
+
+# Deployment guide MySQL 8 / academy_db. Set false to point at an existing DB.
+create_rds = true
+
+# existing_db_url      = "jdbc:mysql://your-host:3306/academy_db?useSSL=true&serverTimezone=Asia/Kolkata"
+# existing_db_username = "academy"
+# existing_db_password = "replace-me"
+
+# Optional HTTPS. Empty = HTTP on port 80 only.
+# acm_certificate_arn = "arn:aws:acm:ap-south-1:123456789012:certificate/..."
+
+# Deployment guide: prod uses ddl-auto=validate, so schema must exist first.
+# Uncomment only if you want the ECS task to create tables on a new RDS instance.
+# spring_jpa_hibernate_ddl_auto = "update"
