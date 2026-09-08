@@ -54,4 +54,5 @@ public class SubscriptionController {
         SubscriptionResponse response = subscriptionService.updateSubscriptionPayment(subscriptionId, request);
         return ResponseEntity.ok(ApiResponse.ok("Subscription payment updated successfully", response));
     }
+
 }
