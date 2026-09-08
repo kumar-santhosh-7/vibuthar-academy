@@ -6,10 +6,11 @@ import com.academy.project.dto.course.CourseResponse;
 import com.academy.project.dto.course.CourseVideoResponse;
 import com.academy.project.dto.response.PagedResponse;
 import com.academy.project.enums.CourseStatus;
+import org.springframework.web.multipart.MultipartFile;
 
 public interface CourseService {
 
-    CourseResponse createCourse(CreateCourseRequest request);
+    CourseResponse createCourse(CreateCourseRequest request, MultipartFile thumbnail);
 
     PagedResponse<CourseResponse> listCourses(CourseStatus status, String search, int page, int size);
 

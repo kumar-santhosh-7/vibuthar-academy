@@ -14,29 +14,60 @@ import com.academy.project.repository.course.CourseVideoRepository;
 import com.academy.project.service.course.CourseService;
 import com.academy.project.util.CourseIdGenerator;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.util.Locale;
+import java.util.Set;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class CourseServiceImplementation implements CourseService {
 
+    private static final String THUMBNAIL_SUBDIR = "thumbnails";
+
+    private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of(
+            "image/jpeg",
+            "image/jpg",
+            "image/png",
+            "image/gif",
+            "image/webp"
+    );
+
     private final CourseRepository courseRepository;
     private final CourseVideoRepository courseVideoRepository;
 
+    @Value("${app.images.storage-dir:images}")
+    private String storageDir;
+
+    @Value("${app.images.url-prefix:/images}")
+    private String urlPrefix;
+
     @Override
     @Transactional
-    public CourseResponse createCourse(CreateCourseRequest request) {
+    public CourseResponse createCourse(CreateCourseRequest request, MultipartFile thumbnail) {
+        String thumbnailUrl = storeThumbnailIfPresent(thumbnail);
+
         Course course = Course.builder()
                 .title(request.getTitle())
                 .description(request.getDescription())
                 .durationHours(request.getDurationHours())
                 .price(request.getPrice())
                 .status(request.getStatus() != null ? request.getStatus() : CourseStatus.ACTIVE)
-                .thumbnailUrl(request.getThumbnailUrl())
+                .thumbnailUrl(thumbnailUrl)
                 .build();
 
         course = courseRepository.save(course);
@@ -83,5 +114,53 @@ public class CourseServiceImplementation implements CourseService {
                 .build();
 
         return CourseVideoResponse.fromEntity(courseVideoRepository.save(video));
+    }
+
+    private String storeThumbnailIfPresent(MultipartFile thumbnail) {
+        if (thumbnail == null || thumbnail.isEmpty()) {
+            return null;
+        }
+
+        String contentType = thumbnail.getContentType();
+        if (contentType == null || !ALLOWED_CONTENT_TYPES.contains(contentType.toLowerCase(Locale.ROOT))) {
+            throw ApiException.badRequest("Only image files are allowed for thumbnail (jpeg, png, gif, webp)");
+        }
+
+        String originalFileName = StringUtils.cleanPath(
+                thumbnail.getOriginalFilename() != null ? thumbnail.getOriginalFilename() : "thumbnail"
+        );
+        String extension = extractExtension(originalFileName, contentType);
+        String storedFileName = UUID.randomUUID().toString().replace("-", "") + extension;
+
+        try {
+            Path uploadPath = Paths.get(storageDir, THUMBNAIL_SUBDIR).toAbsolutePath().normalize();
+            Files.createDirectories(uploadPath);
+            Path target = uploadPath.resolve(storedFileName).normalize();
+            if (!target.startsWith(uploadPath)) {
+                throw ApiException.badRequest("Invalid file path");
+            }
+            Files.copy(thumbnail.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException ex) {
+            throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to store thumbnail file");
+        }
+
+        String prefix = urlPrefix.endsWith("/") ? urlPrefix.substring(0, urlPrefix.length() - 1) : urlPrefix;
+        return prefix + "/" + THUMBNAIL_SUBDIR + "/" + storedFileName;
+    }
+
+    private String extractExtension(String originalFileName, String contentType) {
+        int dotIndex = originalFileName.lastIndexOf('.');
+        if (dotIndex >= 0 && dotIndex < originalFileName.length() - 1) {
+            return originalFileName.substring(dotIndex).toLowerCase(Locale.ROOT);
+        }
+        if (contentType == null) {
+            return ".jpg";
+        }
+        return switch (contentType.toLowerCase(Locale.ROOT)) {
+            case "image/png" -> ".png";
+            case "image/gif" -> ".gif";
+            case "image/webp" -> ".webp";
+            default -> ".jpg";
+        };
     }
 }
