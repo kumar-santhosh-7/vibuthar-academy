@@ -1,7 +1,9 @@
 package com.academy.project.controller.admin;
 
 import com.academy.project.dto.subscription.CreateSubscriptionRequest;
+import com.academy.project.dto.subscription.PaidAmountResponse;
 import com.academy.project.dto.subscription.SubscriptionResponse;
+import com.academy.project.dto.subscription.SubscriptionStatsResponse;
 import com.academy.project.dto.subscription.UpdateSubscriptionPaymentRequest;
 import com.academy.project.dto.response.ApiResponse;
 import com.academy.project.service.subscription.SubscriptionService;
@@ -19,6 +21,21 @@ import org.springframework.web.bind.annotation.*;
 public class SubscriptionController {
 
     private final SubscriptionService subscriptionService;
+
+    @GetMapping("/stats")
+    @PreAuthorize("hasAnyRole('ADMIN','TRAINER')")
+    public ResponseEntity<ApiResponse<SubscriptionStatsResponse>> getSubscriptionStats() {
+        SubscriptionStatsResponse response = subscriptionService.getSubscriptionStats();
+        return ResponseEntity.ok(ApiResponse.ok("Subscription stats fetched successfully", response));
+    }
+
+    @GetMapping("/paid-amount")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<PaidAmountResponse>> getTotalPaidAmount(
+            @RequestParam(required = false) String courseId) {
+        PaidAmountResponse response = subscriptionService.getTotalPaidAmount(courseId);
+        return ResponseEntity.ok(ApiResponse.ok("Total paid amount fetched successfully", response));
+    }
 
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN','TRAINER')")
