@@ -1,7 +1,9 @@
 package com.academy.project.serviceImplementation.subscription;
 
 import com.academy.project.dto.subscription.CreateSubscriptionRequest;
+import com.academy.project.dto.subscription.PaidAmountResponse;
 import com.academy.project.dto.subscription.SubscriptionResponse;
+import com.academy.project.dto.subscription.SubscriptionStatsResponse;
 import com.academy.project.dto.subscription.UpdateSubscriptionPaymentRequest;
 import com.academy.project.entity.course.Course;
 import com.academy.project.entity.subscription.CourseSubscription;
@@ -124,6 +126,44 @@ public class SubscriptionServiceImplementation implements SubscriptionService {
 
         CourseSubscription saved = courseSubscriptionRepository.save(subscription);
         return SubscriptionResponse.from(saved, student, course);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public SubscriptionStatsResponse getSubscriptionStats() {
+        LocalDateTime now = LocalDateTime.now();
+        long subscribedMemberCount = courseSubscriptionRepository.countActiveSubscribers(
+                SubscriptionStatus.ACTIVE, now
+        );
+        long totalStudents = userRepository.countByRoleAndDeletedAtIsNull(UserRole.STUDENT);
+        long unsubscribedMemberCount = Math.max(0, totalStudents - subscribedMemberCount);
+        long courseCount = courseRepository.count();
+
+        return SubscriptionStatsResponse.builder()
+                .subscribedMemberCount(subscribedMemberCount)
+                .unsubscribedMemberCount(unsubscribedMemberCount)
+                .courseCount(courseCount)
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PaidAmountResponse getTotalPaidAmount(String courseId) {
+        String normalizedCourseId = (courseId == null || courseId.isBlank()) ? null : courseId.trim();
+
+        if (normalizedCourseId != null) {
+            courseRepository.findByCourseId(normalizedCourseId)
+                    .orElseThrow(() -> ApiException.notFound("Course not found"));
+        }
+
+        BigDecimal totalPaidAmount = courseSubscriptionRepository.sumPaidAmount(normalizedCourseId);
+        if (totalPaidAmount == null) {
+            totalPaidAmount = BigDecimal.ZERO;
+        }
+
+        return PaidAmountResponse.builder()
+                .totalPaidAmount(totalPaidAmount)
+                .build();
     }
 
     private ResolvedPayment resolvePayment(
