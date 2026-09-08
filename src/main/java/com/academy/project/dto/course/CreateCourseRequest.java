@@ -23,7 +23,4 @@ public class CreateCourseRequest {
     private BigDecimal price;
 
     private CourseStatus status;
-
-    @Size(max = 500, message = "Thumbnail URL must not exceed 500 characters")
-    private String thumbnailUrl;
 }

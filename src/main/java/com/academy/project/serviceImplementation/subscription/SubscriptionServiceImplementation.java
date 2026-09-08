@@ -88,9 +88,13 @@ public class SubscriptionServiceImplementation implements SubscriptionService {
         CourseSubscription subscription = courseSubscriptionRepository.findById(subscriptionId)
                 .orElseThrow(() -> ApiException.notFound("Subscription not found"));
 
-        User student = userRepository.findByUserId(subscription.getUserId())
+        User student = userRepository.findByUserId(request.getStudentId())
                 .filter(user -> user.getDeletedAt() == null)
                 .orElseThrow(() -> ApiException.notFound("Student not found"));
+
+        if (!subscription.getUserId().equals(student.getUserId())) {
+            throw ApiException.badRequest("Student id does not match this subscription");
+        }
 
         Course course = courseRepository.findByCourseId(subscription.getCourseId())
                 .orElseThrow(() -> ApiException.notFound("Course not found"));

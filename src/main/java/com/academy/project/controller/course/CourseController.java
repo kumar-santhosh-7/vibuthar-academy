@@ -11,9 +11,11 @@ import com.academy.project.service.course.CourseService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequiredArgsConstructor
@@ -23,11 +25,12 @@ public class CourseController {
 
     private final CourseService courseService;
 
-    @PostMapping("/admin/courses")
+    @PostMapping(value = "/admin/courses", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<CourseResponse>> createCourse(
-            @Valid @RequestBody CreateCourseRequest request) {
-        CourseResponse response = courseService.createCourse(request);
+            @Valid @ModelAttribute CreateCourseRequest request,
+            @RequestParam(value = "thumbnail", required = false) MultipartFile thumbnail) {
+        CourseResponse response = courseService.createCourse(request, thumbnail);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.ok("Course created successfully", response));
     }
