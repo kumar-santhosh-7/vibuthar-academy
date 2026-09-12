@@ -11,4 +11,6 @@ public interface CourseVideoRepository extends JpaRepository<CourseVideo, Long> 
     List<CourseVideo> findByCourseIdOrderBySortOrderAsc(Long courseId);
 
     List<CourseVideo> findByCourseIdInOrderBySortOrderAsc(Collection<Long> courseIds);
+
+    void deleteByCourseId(Long courseId);
 }

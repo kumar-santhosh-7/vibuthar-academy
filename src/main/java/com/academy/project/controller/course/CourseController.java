@@ -65,4 +65,11 @@ public class CourseController {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.ok("Video added successfully", response));
     }
+
+    @DeleteMapping("/admin/courses/{courseId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> deleteCourse(@PathVariable String courseId) {
+        courseService.deleteCourse(courseId);
+        return ResponseEntity.ok(ApiResponse.ok("Course deleted successfully", null));
+    }
 }

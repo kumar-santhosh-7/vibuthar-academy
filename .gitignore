@@ -50,4 +50,9 @@ terraform.tfvars
 .terraform.tfvars
 ### Uploaded gallery images ###
 /images/
+### Uploaded gallery images (keep folders; ignore gallery files only) ###
+/images/**
 !/images/.gitkeep
+!/images/thumbnails/
+!/images/thumbnails/**
+!/images/thumbnails/.gitkeep

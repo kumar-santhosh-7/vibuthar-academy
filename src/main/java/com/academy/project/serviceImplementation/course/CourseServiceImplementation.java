@@ -11,6 +11,7 @@ import com.academy.project.enums.CourseStatus;
 import com.academy.project.exception.ApiException;
 import com.academy.project.repository.course.CourseRepository;
 import com.academy.project.repository.course.CourseVideoRepository;
+import com.academy.project.repository.subscription.CourseSubscriptionRepository;
 import com.academy.project.service.course.CourseService;
 import com.academy.project.util.CourseIdGenerator;
 import lombok.RequiredArgsConstructor;
@@ -49,6 +50,7 @@ public class CourseServiceImplementation implements CourseService {
 
     private final CourseRepository courseRepository;
     private final CourseVideoRepository courseVideoRepository;
+    private final CourseSubscriptionRepository courseSubscriptionRepository;
 
     @Value("${app.images.storage-dir:images}")
     private String storageDir;
@@ -116,6 +118,18 @@ public class CourseServiceImplementation implements CourseService {
         return CourseVideoResponse.fromEntity(courseVideoRepository.save(video));
     }
 
+    @Override
+    @Transactional
+    public void deleteCourse(String courseId) {
+        Course course = courseRepository.findByCourseId(courseId)
+                .orElseThrow(() -> ApiException.notFound("Course not found"));
+
+        courseVideoRepository.deleteByCourseId(course.getId());
+        courseSubscriptionRepository.deleteByCourseId(course.getCourseId());
+        courseRepository.delete(course);
+        deleteThumbnailQuietly(course.getThumbnailUrl());
+    }
+
     private String storeThumbnailIfPresent(MultipartFile thumbnail) {
         if (thumbnail == null || thumbnail.isEmpty()) {
             return null;
@@ -162,5 +176,32 @@ public class CourseServiceImplementation implements CourseService {
             case "image/webp" -> ".webp";
             default -> ".jpg";
         };
+    }
+
+    private void deleteThumbnailQuietly(String thumbnailUrl) {
+        if (thumbnailUrl == null || thumbnailUrl.isBlank()) {
+            return;
+        }
+
+        String prefix = urlPrefix.endsWith("/") ? urlPrefix.substring(0, urlPrefix.length() - 1) : urlPrefix;
+        String expectedPrefix = prefix + "/" + THUMBNAIL_SUBDIR + "/";
+        if (!thumbnailUrl.startsWith(expectedPrefix)) {
+            return;
+        }
+
+        String storedFileName = thumbnailUrl.substring(expectedPrefix.length());
+        if (storedFileName.isBlank() || storedFileName.contains("..") || storedFileName.contains("/") || storedFileName.contains("\\")) {
+            return;
+        }
+
+        try {
+            Path uploadPath = Paths.get(storageDir, THUMBNAIL_SUBDIR).toAbsolutePath().normalize();
+            Path filePath = uploadPath.resolve(storedFileName).normalize();
+            if (filePath.startsWith(uploadPath)) {
+                Files.deleteIfExists(filePath);
+            }
+        } catch (IOException ignored) {
+            // DB is source of truth; orphaned files can be cleaned manually if needed
+        }
     }
 }
