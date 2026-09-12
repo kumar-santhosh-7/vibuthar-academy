@@ -70,6 +70,13 @@ COPY --from=build --chown=spring:spring /extracted/spring-boot-loader/ ./
 COPY --from=build --chown=spring:spring /extracted/snapshot-dependencies/ ./
 COPY --from=build --chown=spring:spring /extracted/application/ ./
 
+# WORKDIR /application is created as root. The app writes gallery files to
+# app.images.storage-dir (relative path "images" → /application/images).
+# User spring cannot mkdir there unless this directory is writable.
+# Run as root (before USER spring).
+RUN mkdir -p /application/images/thumbnails \
+    && chown -R spring:spring /application
+
 USER spring
 
 # Guide: production run uses --spring.profiles.active=prod
