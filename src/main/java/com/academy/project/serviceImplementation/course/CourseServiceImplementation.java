@@ -15,6 +15,7 @@ import com.academy.project.repository.subscription.CourseSubscriptionRepository;
 import com.academy.project.service.course.CourseService;
 import com.academy.project.util.CourseIdGenerator;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -29,11 +30,11 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CourseServiceImplementation implements CourseService {
@@ -146,16 +147,22 @@ public class CourseServiceImplementation implements CourseService {
         String extension = extractExtension(originalFileName, contentType);
         String storedFileName = UUID.randomUUID().toString().replace("-", "") + extension;
 
+        Path uploadPath = Paths.get(storageDir, THUMBNAIL_SUBDIR).toAbsolutePath().normalize();
+        Path target = uploadPath.resolve(storedFileName).normalize();
+        if (!target.startsWith(uploadPath)) {
+            throw ApiException.badRequest("Invalid file path");
+        }
+
         try {
-            Path uploadPath = Paths.get(storageDir, THUMBNAIL_SUBDIR).toAbsolutePath().normalize();
             Files.createDirectories(uploadPath);
-            Path target = uploadPath.resolve(storedFileName).normalize();
-            if (!target.startsWith(uploadPath)) {
-                throw ApiException.badRequest("Invalid file path");
-            }
-            Files.copy(thumbnail.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
-        } catch (IOException ex) {
-            throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to store thumbnail file");
+            thumbnail.transferTo(target);
+        } catch (IOException | IllegalStateException ex) {
+            log.error("Failed to store thumbnail. path={}, user.dir={}, cause={}",
+                    target, System.getProperty("user.dir"), ex.toString(), ex);
+            throw new ApiException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Failed to store thumbnail file (" + uploadPath + "): " + ex.getMessage()
+            );
         }
 
         String prefix = urlPrefix.endsWith("/") ? urlPrefix.substring(0, urlPrefix.length() - 1) : urlPrefix;
