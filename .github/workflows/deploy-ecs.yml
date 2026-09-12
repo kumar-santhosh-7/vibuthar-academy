@@ -1,0 +1,128 @@
+# Deploy the Spring Boot image to ECS on EC2 in ap-south-1 (Mumbai).
+#
+# Before the first run:
+# 1. terraform -chdir=terraform apply
+# 2. GitHub repo Settings → Secrets and variables → Actions → Secrets
+#      AWS_ACCESS_KEY_ID     = terraform output -raw github_actions_access_key_id
+#      AWS_SECRET_ACCESS_KEY = terraform output -raw github_actions_secret_access_key
+#    Must be Secrets, not Variables. Repository secrets (this workflow does not
+#    use a GitHub Environment). Remove AWS_ROLE_ARN if it is still set.
+#
+# Names below match terraform/variables.tf defaults (project_name = ias-academy).
+
+name: Deploy to ECS
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Git branch to build and deploy to ECS
+        required: true
+        type: string
+        default: deployment
+  push:
+    branches:
+      - main
+      - deployment
+
+concurrency:
+  group: deploy-ecs-ap-south-1
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: ap-south-1
+  ECR_REPOSITORY: ias-academy
+  ECS_CLUSTER: ias-academy
+  ECS_SERVICE: ias-academy
+  ECS_TASK_FAMILY: ias-academy
+  CONTAINER_NAME: ias-academy
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || github.ref }}
+
+      - name: Deploying ref
+        run: echo "Deploying $(git rev-parse --abbrev-ref HEAD) @ $(git rev-parse HEAD)"
+
+      - name: Require AWS access key secrets
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ]; then
+            echo "::error::Set repository secrets AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY. Values: terraform output -raw github_actions_access_key_id and github_actions_secret_access_key"
+            exit 1
+          fi
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set image URI
+        id: image
+        run: echo "uri=${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ steps.image.outputs.uri }}
+            ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Download current ECS task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition "${{ env.ECS_TASK_FAMILY }}" \
+            --query taskDefinition \
+            --output json \
+          | jq 'del(
+              .taskDefinitionArn,
+              .revision,
+              .status,
+              .requiresAttributes,
+              .compatibilities,
+              .registeredAt,
+              .registeredBy,
+              .deregisteredAt
+            )' > task-definition.json
+
+      - name: Render task definition with new image
+        id: render
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: ${{ env.CONTAINER_NAME }}
+          image: ${{ steps.image.outputs.uri }}
+
+      - name: Deploy to Amazon ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.render.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true
