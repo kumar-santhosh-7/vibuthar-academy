@@ -61,7 +61,9 @@ RUN --mount=type=cache,target=/root/.m2 \
 FROM eclipse-temurin:17-jre-jammy AS runtime
 
 RUN groupadd --system --gid 1001 spring \
-    && useradd --system --uid 1001 --gid spring --no-create-home spring
+    && useradd --system --uid 1001 --gid spring --no-create-home spring \
+    && mkdir -p /application/images \
+    && chown -R spring:spring /application
 
 WORKDIR /application
 
@@ -69,13 +71,6 @@ COPY --from=build --chown=spring:spring /extracted/dependencies/ ./
 COPY --from=build --chown=spring:spring /extracted/spring-boot-loader/ ./
 COPY --from=build --chown=spring:spring /extracted/snapshot-dependencies/ ./
 COPY --from=build --chown=spring:spring /extracted/application/ ./
-
-# WORKDIR /application is created as root. The app writes gallery files to
-# app.images.storage-dir (relative path "images" → /application/images).
-# User spring cannot mkdir there unless this directory is writable.
-# Run as root (before USER spring).
-RUN mkdir -p /application/images/thumbnails \
-    && chown -R spring:spring /application
 
 USER spring
 
