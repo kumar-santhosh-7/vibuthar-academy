@@ -65,6 +65,10 @@ RUN groupadd --system --gid 1001 spring \
 
 WORKDIR /application
 
+# Writable dirs for non-root `spring` user (uploads + log file)
+RUN mkdir -p /application/images/thumbnails /application/logs \
+    && chown -R spring:spring /application
+
 COPY --from=build --chown=spring:spring /extracted/dependencies/ ./
 COPY --from=build --chown=spring:spring /extracted/spring-boot-loader/ ./
 COPY --from=build --chown=spring:spring /extracted/snapshot-dependencies/ ./

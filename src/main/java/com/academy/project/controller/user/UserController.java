@@ -33,4 +33,10 @@ public class UserController {
         UserResponse response = userService.updateUser(userId, request);
         return ResponseEntity.ok(ApiResponse.ok("User updated successfully", response));
     }
+
+    @GetMapping("/health")
+    public String health() {
+        return "Application is running successfully!";
+    }
+
 }

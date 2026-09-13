@@ -5,7 +5,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -20,21 +19,23 @@ public class ImageStorageInitializer {
     private String storageDir;
 
     @PostConstruct
-    public void ensureStorageDirectories() throws IOException {
+    public void ensureStorageDirectories() {
         Path imagesPath = Paths.get(storageDir).toAbsolutePath().normalize();
         Path thumbnailsPath = imagesPath.resolve(THUMBNAIL_SUBDIR).normalize();
 
-        Files.createDirectories(thumbnailsPath);
-
-        if (!Files.isWritable(imagesPath) || !Files.isWritable(thumbnailsPath)) {
-            throw new IllegalStateException(
-                    "Image storage directories are not writable. images=" + imagesPath
-                            + ", thumbnails=" + thumbnailsPath
-                            + ", user.dir=" + System.getProperty("user.dir")
-            );
+        try {
+            Files.createDirectories(thumbnailsPath);
+            if (!Files.isWritable(imagesPath) || !Files.isWritable(thumbnailsPath)) {
+                log.warn("Image storage directories exist but are not writable. images={}, thumbnails={}, user.dir={}",
+                        imagesPath, thumbnailsPath, System.getProperty("user.dir"));
+                return;
+            }
+            log.info("Image storage ready. images={}, thumbnails={}, user.dir={}",
+                    imagesPath, thumbnailsPath, System.getProperty("user.dir"));
+        } catch (Exception ex) {
+            // Do not block startup; uploads will fail with a clear error until storage is fixed.
+            log.warn("Could not prepare image storage at {} (user.dir={}): {}",
+                    thumbnailsPath, System.getProperty("user.dir"), ex.toString());
         }
-
-        log.info("Image storage ready. images={}, thumbnails={}, user.dir={}",
-                imagesPath, thumbnailsPath, System.getProperty("user.dir"));
     }
 }

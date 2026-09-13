@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
@@ -147,7 +148,7 @@ public class CourseServiceImplementation implements CourseService {
         String extension = extractExtension(originalFileName, contentType);
         String storedFileName = UUID.randomUUID().toString().replace("-", "") + extension;
 
-        Path uploadPath = Paths.get(storageDir, THUMBNAIL_SUBDIR).toAbsolutePath().normalize();
+        Path uploadPath = Paths.get(storageDir).toAbsolutePath().normalize().resolve(THUMBNAIL_SUBDIR);
         Path target = uploadPath.resolve(storedFileName).normalize();
         if (!target.startsWith(uploadPath)) {
             throw ApiException.badRequest("Invalid file path");
@@ -155,8 +156,10 @@ public class CourseServiceImplementation implements CourseService {
 
         try {
             Files.createDirectories(uploadPath);
-            thumbnail.transferTo(target);
-        } catch (IOException | IllegalStateException ex) {
+            // Same write style as gallery images (Files.copy). transferTo often fails on ECS.
+            Files.copy(thumbnail.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
+            log.info("Stored course thumbnail at {}", target);
+        } catch (IOException ex) {
             log.error("Failed to store thumbnail. path={}, user.dir={}, cause={}",
                     target, System.getProperty("user.dir"), ex.toString(), ex);
             throw new ApiException(
@@ -202,7 +205,7 @@ public class CourseServiceImplementation implements CourseService {
         }
 
         try {
-            Path uploadPath = Paths.get(storageDir, THUMBNAIL_SUBDIR).toAbsolutePath().normalize();
+            Path uploadPath = Paths.get(storageDir).toAbsolutePath().normalize().resolve(THUMBNAIL_SUBDIR);
             Path filePath = uploadPath.resolve(storedFileName).normalize();
             if (filePath.startsWith(uploadPath)) {
                 Files.deleteIfExists(filePath);
