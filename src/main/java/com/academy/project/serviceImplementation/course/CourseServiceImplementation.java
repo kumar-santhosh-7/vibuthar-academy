@@ -9,10 +9,14 @@ import com.academy.project.entity.course.Course;
 import com.academy.project.entity.course.CourseVideo;
 import com.academy.project.enums.CourseStatus;
 import com.academy.project.exception.ApiException;
+import com.academy.project.entity.material.StudyMaterial;
 import com.academy.project.repository.course.CourseRepository;
 import com.academy.project.repository.course.CourseVideoRepository;
+import com.academy.project.repository.material.StudyMaterialRepository;
 import com.academy.project.repository.subscription.CourseSubscriptionRepository;
+import com.academy.project.repository.video.VideoWatchProgressRepository;
 import com.academy.project.service.course.CourseService;
+import com.academy.project.service.storage.S3StorageService;
 import com.academy.project.util.CourseIdGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -57,6 +61,9 @@ public class CourseServiceImplementation implements CourseService {
     private final CourseRepository courseRepository;
     private final CourseVideoRepository courseVideoRepository;
     private final CourseSubscriptionRepository courseSubscriptionRepository;
+    private final StudyMaterialRepository studyMaterialRepository;
+    private final VideoWatchProgressRepository videoWatchProgressRepository;
+    private final S3StorageService s3StorageService;
 
     @Value("${app.images.storage-dir:images}")
     private String storageDir;
@@ -140,12 +147,37 @@ public class CourseServiceImplementation implements CourseService {
 
     @Override
     @Transactional
+    public void deleteVideoFromCourse(String courseId, Long videoId) {
+        Course course = courseRepository.findByCourseId(courseId)
+                .orElseThrow(() -> ApiException.notFound("Course not found"));
+
+        CourseVideo video = courseVideoRepository.findById(videoId)
+                .orElseThrow(() -> ApiException.notFound("Video not found"));
+
+        if (!video.getCourseId().equals(course.getId())) {
+            throw ApiException.notFound("Video not found for this course");
+        }
+
+        videoWatchProgressRepository.deleteByVideoId(videoId);
+        courseVideoRepository.delete(video);
+    }
+
+    @Override
+    @Transactional
     public void deleteCourse(String courseId) {
         Course course = courseRepository.findByCourseId(courseId)
                 .orElseThrow(() -> ApiException.notFound("Course not found"));
 
         courseVideoRepository.deleteByCourseId(course.getId());
         courseSubscriptionRepository.deleteByCourseId(course.getCourseId());
+
+        List<StudyMaterial> materials =
+                studyMaterialRepository.findByCourseIdOrderByCreatedAtDesc(course.getCourseId());
+        for (StudyMaterial material : materials) {
+            s3StorageService.deleteQuietly(material.getS3Key());
+        }
+        studyMaterialRepository.deleteByCourseId(course.getCourseId());
+
         courseRepository.delete(course);
         deleteThumbnailQuietly(course.getThumbnailUrl());
     }
@@ -229,7 +261,7 @@ public class CourseServiceImplementation implements CourseService {
                 Files.deleteIfExists(filePath);
             }
         } catch (IOException ignored) {
-            // DB is source of truth; orphaned files can be cleaned manually if needed
+            // DB is source of truth; orphaned files canj be cleaned manually if needed
         }
     }
 }

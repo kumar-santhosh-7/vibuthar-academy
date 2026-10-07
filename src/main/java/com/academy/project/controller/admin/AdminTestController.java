@@ -7,12 +7,15 @@ import com.academy.project.enums.TestStatus;
 import com.academy.project.service.test.TestService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
+import com.academy.project.util.QuestionExcelHelper;
 
 import java.util.List;
 
@@ -24,23 +27,21 @@ public class AdminTestController {
 
     private final TestService testService;
 
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<TestResponse>> createTest(
-            @Valid @ModelAttribute CreateTestRequest request,
-            @RequestParam(value = "pdf", required = false) MultipartFile pdf) {
-        TestResponse response = testService.createTest(request, pdf);
+            @Valid @RequestBody CreateTestRequest request) {
+        TestResponse response = testService.createTest(request, null);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.ok("Test created successfully", response));
     }
 
-    @PutMapping(value = "/{testId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PutMapping("/{testId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<TestResponse>> updateTest(
             @PathVariable String testId,
-            @Valid @ModelAttribute UpdateTestRequest request,
-            @RequestParam(value = "pdf", required = false) MultipartFile pdf) {
-        TestResponse response = testService.updateTest(testId, request, pdf);
+            @Valid @RequestBody UpdateTestRequest request) {
+        TestResponse response = testService.updateTest(testId, request, null);
         return ResponseEntity.ok(ApiResponse.ok("Test updated successfully", response));
     }
 
@@ -66,6 +67,30 @@ public class AdminTestController {
         TestResponse response = testService.addQuestions(testId, request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.ok("Questions added successfully", response));
+    }
+
+    /** Download empty/sample Excel template for bulk MCQ upload. */
+    @GetMapping("/questions/sample-excel")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<byte[]> downloadSampleQuestionsExcel() {
+        byte[] file = testService.downloadSampleQuestionsExcel();
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"" + QuestionExcelHelper.SAMPLE_FILENAME + "\"")
+                .contentType(MediaType.parseMediaType(
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(file);
+    }
+
+    /** Upload filled Excel to add questions in bulk. */
+    @PostMapping(value = "/{testId}/questions/excel", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<TestResponse>> importQuestionsFromExcel(
+            @PathVariable String testId,
+            @RequestParam("file") MultipartFile file) {
+        TestResponse response = testService.importQuestionsFromExcel(testId, file);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.ok("Questions imported from Excel successfully", response));
     }
 
     @DeleteMapping("/{testId}/questions/{questionId}")

@@ -93,7 +93,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/images", "/api/images/**").permitAll()
                         .requestMatchers("/api/v1/interests").permitAll()
                         .requestMatchers("/images/**").permitAll()
+                        .requestMatchers("/pdfs/**").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
+                        // Razorpay webhooks (authenticated via X-Razorpay-Signature, not JWT)
+                        .requestMatchers(HttpMethod.POST, "/api/payments/webhook").permitAll()
 
                         // Coarse path gates. Fine-grained roles live on methods via @PreAuthorize.
                         .requestMatchers("/api/admin/**").authenticated()

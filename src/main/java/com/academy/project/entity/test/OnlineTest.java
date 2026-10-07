@@ -37,6 +37,14 @@ public class OnlineTest {
     @Column(name = "duration_minutes")
     private Integer durationMinutes;
 
+    /** Total marks for the test. Defaults to question count (1 mark each) when null. */
+    @Column(name = "total_marks")
+    private Integer totalMarks;
+
+    /** Minimum marks required to pass; null means no cutoff. */
+    @Column(name = "cut_off")
+    private Integer cutOff;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Builder.Default

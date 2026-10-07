@@ -16,5 +16,7 @@ public interface CourseService {
 
     CourseVideoResponse addVideoToCourse(String courseId, AddCourseVideoRequest request);
 
+    void deleteVideoFromCourse(String courseId, Long videoId);
+
     void deleteCourse(String courseId);
 }

@@ -7,7 +7,7 @@ import com.academy.project.entity.intrest.Interest;
 import com.academy.project.enums.EmailStatus;
 import com.academy.project.repository.interest.InterestRepository;
 import com.academy.project.service.intrest.InterestService;
-import com.academy.project.service.emailService.IntrestEmailService;
+// import com.academy.project.service.emailService.IntrestEmailService; // SMTP mail temporarily disabled
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -24,7 +24,7 @@ import java.time.LocalDateTime;
 public class InterestServiceImplementation implements InterestService {
 
     private final InterestRepository interestRepository;
-    private final IntrestEmailService emailService;
+    // private final IntrestEmailService emailService; // SMTP mail temporarily disabled
 
     @Override
     public InterestResponse createInterest(InterestRequest request) {
@@ -42,7 +42,8 @@ public class InterestServiceImplementation implements InterestService {
 
         Interest savedInterest = interestRepository.save(interest);
 
-        // 2. Send email
+        // 2. Send email — SMTP mail temporarily disabled
+        /*
         try {
 
             emailService.sendInterestNotification(savedInterest);
@@ -75,6 +76,16 @@ public class InterestServiceImplementation implements InterestService {
                 .courseOfInterest(updatedInterest.getCourseOfInterest())
                 .emailStatus(updatedInterest.getEmailStatus())
                 .createdAt(updatedInterest.getCreatedAt())
+                .build();
+        */
+
+        return InterestResponse.builder()
+                .id(savedInterest.getId())
+                .username(savedInterest.getUsername())
+                .emailId(savedInterest.getEmailId())
+                .courseOfInterest(savedInterest.getCourseOfInterest())
+                .emailStatus(savedInterest.getEmailStatus())
+                .createdAt(savedInterest.getCreatedAt())
                 .build();
     }
 

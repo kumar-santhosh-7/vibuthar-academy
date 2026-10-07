@@ -14,4 +14,8 @@ public class UpdateTestRequest {
     private String description;
 
     private Integer durationMinutes;
+
+    private Integer totalMarks;
+
+    private Integer cutOff;
 }

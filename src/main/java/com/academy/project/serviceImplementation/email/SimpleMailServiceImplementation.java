@@ -5,7 +5,7 @@ import com.academy.project.service.emailService.SimpleMailService;
 import org.springframework.stereotype.Service;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
-@Service
+// @Service // SMTP mail temporarily disabled
 public class SimpleMailServiceImplementation implements SimpleMailService {
 
     private final JavaMailSender mailSender;

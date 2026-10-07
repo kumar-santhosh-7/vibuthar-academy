@@ -3,12 +3,14 @@ package com.academy.project.serviceImplementation.test;
 import com.academy.project.dto.response.PagedResponse;
 import com.academy.project.dto.test.*;
 import com.academy.project.entity.test.*;
+import com.academy.project.enums.AttemptStatus;
 import com.academy.project.enums.TestStatus;
 import com.academy.project.exception.ApiException;
 import com.academy.project.repository.test.*;
 import com.academy.project.repository.user.UserRepository;
 import com.academy.project.security.SecurityUtils;
 import com.academy.project.service.test.TestService;
+import com.academy.project.util.QuestionExcelHelper;
 import com.academy.project.util.TestIdGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +31,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -61,6 +65,8 @@ public class TestServiceImplementation implements TestService {
                 .title(request.getTitle().trim())
                 .description(trimToNull(request.getDescription()))
                 .durationMinutes(request.getDurationMinutes())
+                .totalMarks(request.getTotalMarks())
+                .cutOff(request.getCutOff())
                 .pdfUrl(pdfUrl)
                 .status(TestStatus.DRAFT)
                 .build();
@@ -85,6 +91,12 @@ public class TestServiceImplementation implements TestService {
         }
         if (request.getDurationMinutes() != null) {
             test.setDurationMinutes(request.getDurationMinutes());
+        }
+        if (request.getTotalMarks() != null) {
+            test.setTotalMarks(request.getTotalMarks());
+        }
+        if (request.getCutOff() != null) {
+            test.setCutOff(request.getCutOff());
         }
         if (pdf != null && !pdf.isEmpty()) {
             String oldPdfUrl = test.getPdfUrl();
@@ -186,6 +198,18 @@ public class TestServiceImplementation implements TestService {
     }
 
     @Override
+    public byte[] downloadSampleQuestionsExcel() {
+        return QuestionExcelHelper.buildSampleWorkbook();
+    }
+
+    @Override
+    @Transactional
+    public TestResponse importQuestionsFromExcel(String testId, MultipartFile excelFile) {
+        AddQuestionsRequest request = QuestionExcelHelper.parse(excelFile);
+        return addQuestions(testId, request);
+    }
+
+    @Override
     @Transactional
     public void deleteQuestion(String testId, Long questionId) {
         OnlineTest test = requireTest(testId);
@@ -247,17 +271,54 @@ public class TestServiceImplementation implements TestService {
 
     @Override
     @Transactional
-    public TestResultResponse submitTest(String testId, SubmitTestRequest request) {
+    public TestResultResponse startTest(String testId) {
         String userId = requireAuthenticatedUserId();
-        userRepository.findByUserId(userId)
-                .filter(u -> u.getDeletedAt() == null)
-                .orElseThrow(() -> ApiException.notFound("User not found"));
+        requireActiveUser(userId);
 
         OnlineTest test = requirePublishedTest(testId);
 
-        if (testAttemptRepository.existsByTestPkAndUserId(test.getId(), userId)) {
+        Optional<TestAttempt> existing = testAttemptRepository.findByTestPkAndUserId(test.getId(), userId);
+        if (existing.isPresent()) {
+            TestAttempt attempt = existing.get();
+            if (attempt.getStatus() == AttemptStatus.SUBMITTED) {
+                throw ApiException.conflict("You have already submitted this test");
+            }
+            return TestResultResponse.from(attempt, test);
+        }
+
+        long questionCount = testQuestionRepository.countByTestPk(test.getId());
+        if (questionCount == 0) {
+            throw ApiException.badRequest("This test has no questions");
+        }
+
+        TestAttempt attempt = TestAttempt.builder()
+                .testPk(test.getId())
+                .userId(userId)
+                .status(AttemptStatus.IN_PROGRESS)
+                .startedAt(LocalDateTime.now())
+                .build();
+        attempt = testAttemptRepository.save(attempt);
+        return TestResultResponse.from(attempt, test);
+    }
+
+    @Override
+    @Transactional
+    public TestResultResponse submitTest(String testId, SubmitTestRequest request) {
+        String userId = requireAuthenticatedUserId();
+        requireActiveUser(userId);
+
+        OnlineTest test = requirePublishedTest(testId);
+
+        TestAttempt attempt = testAttemptRepository.findByTestPkAndUserId(test.getId(), userId)
+                .orElse(null);
+
+        if (attempt != null && attempt.getStatus() == AttemptStatus.SUBMITTED) {
             throw ApiException.conflict("You have already submitted this test");
         }
+
+        LocalDateTime startedAt = attempt != null && attempt.getStartedAt() != null
+                ? attempt.getStartedAt()
+                : LocalDateTime.now();
 
         List<TestQuestion> questions = testQuestionRepository.findByTestPkOrderByOrderIndexAscIdAsc(test.getId());
         if (questions.isEmpty()) {
@@ -288,7 +349,7 @@ public class TestServiceImplementation implements TestService {
             );
         }
 
-        int score = 0;
+        int correctAnswers = 0;
         List<AttemptAnswer> answerEntities = new ArrayList<>();
 
         for (TestQuestion question : questions) {
@@ -310,7 +371,7 @@ public class TestServiceImplementation implements TestService {
 
             boolean correct = selected.isCorrect();
             if (correct) {
-                score++;
+                correctAnswers++;
             }
 
             answerEntities.add(AttemptAnswer.builder()
@@ -321,15 +382,32 @@ public class TestServiceImplementation implements TestService {
         }
 
         int total = questions.size();
-        double percentage = total == 0 ? 0.0 : Math.round((score * 10000.0) / total) / 100.0;
+        int incorrectAnswers = total - correctAnswers;
+        int totalMarks = test.getTotalMarks() != null ? test.getTotalMarks() : total;
+        int marksObtained = total == 0 ? 0 : (correctAnswers * totalMarks) / total;
+        double percentage = totalMarks == 0 ? 0.0 : Math.round((marksObtained * 10000.0) / totalMarks) / 100.0;
 
-        TestAttempt attempt = TestAttempt.builder()
-                .testPk(test.getId())
-                .userId(userId)
-                .score(score)
-                .totalQuestions(total)
-                .percentage(percentage)
-                .build();
+        LocalDateTime submittedAt = LocalDateTime.now();
+        long timeTakenSeconds = Math.max(0, Duration.between(startedAt, submittedAt).getSeconds());
+
+        if (attempt == null) {
+            attempt = TestAttempt.builder()
+                    .testPk(test.getId())
+                    .userId(userId)
+                    .startedAt(startedAt)
+                    .build();
+        }
+
+        attempt.setStatus(AttemptStatus.SUBMITTED);
+        attempt.setScore(correctAnswers);
+        attempt.setCorrectAnswers(correctAnswers);
+        attempt.setIncorrectAnswers(incorrectAnswers);
+        attempt.setMarksObtained(marksObtained);
+        attempt.setTotalQuestions(total);
+        attempt.setPercentage(percentage);
+        attempt.setTimeTakenSeconds((int) Math.min(timeTakenSeconds, Integer.MAX_VALUE));
+        attempt.setStartedAt(startedAt);
+        attempt.setSubmittedAt(submittedAt);
         attempt = testAttemptRepository.save(attempt);
 
         for (AttemptAnswer answer : answerEntities) {
@@ -337,7 +415,7 @@ public class TestServiceImplementation implements TestService {
         }
         attemptAnswerRepository.saveAll(answerEntities);
 
-        return TestResultResponse.from(attempt, test.getTestId());
+        return TestResultResponse.from(attempt, test);
     }
 
     @Override
@@ -349,16 +427,28 @@ public class TestServiceImplementation implements TestService {
         TestAttempt attempt = testAttemptRepository.findByTestPkAndUserId(test.getId(), userId)
                 .orElseThrow(() -> ApiException.notFound("No attempt found for this test"));
 
-        return TestResultResponse.from(attempt, test.getTestId());
+        if (attempt.getStatus() != AttemptStatus.SUBMITTED) {
+            throw ApiException.badRequest("Test has not been submitted yet");
+        }
+
+        return TestResultResponse.from(attempt, test);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<TestResultResponse> listAttempts(String testId) {
         OnlineTest test = requireTest(testId);
-        return testAttemptRepository.findByTestPkOrderBySubmittedAtDesc(test.getId()).stream()
-                .map(a -> TestResultResponse.from(a, test.getTestId()))
+        return testAttemptRepository
+                .findByTestPkAndStatusOrderBySubmittedAtDesc(test.getId(), AttemptStatus.SUBMITTED)
+                .stream()
+                .map(a -> TestResultResponse.from(a, test))
                 .toList();
+    }
+
+    private void requireActiveUser(String userId) {
+        userRepository.findByUserId(userId)
+                .filter(u -> u.getDeletedAt() == null)
+                .orElseThrow(() -> ApiException.notFound("User not found"));
     }
 
     private TestResponse buildDetailResponse(OnlineTest test, boolean includeCorrect) {

@@ -6,5 +6,6 @@ public enum PaymentType {
     CARD,
     BANK_TRANSFER,
     CHEQUE,
+    ONLINE,
     OTHER
 }

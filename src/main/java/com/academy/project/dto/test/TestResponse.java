@@ -18,6 +18,8 @@ public class TestResponse {
     private String description;
     private String pdfUrl;
     private Integer durationMinutes;
+    private Integer totalMarks;
+    private Integer cutOff;
     private TestStatus status;
     private Integer questionCount;
     private LocalDateTime createdAt;
@@ -32,6 +34,8 @@ public class TestResponse {
                 .description(test.getDescription())
                 .pdfUrl(test.getPdfUrl())
                 .durationMinutes(test.getDurationMinutes())
+                .totalMarks(test.getTotalMarks() != null ? test.getTotalMarks() : questionCount)
+                .cutOff(test.getCutOff())
                 .status(test.getStatus())
                 .questionCount(questionCount)
                 .createdAt(test.getCreatedAt())
@@ -40,6 +44,7 @@ public class TestResponse {
     }
 
     public static TestResponse withQuestions(OnlineTest test, List<QuestionResponse> questions) {
+        int count = questions != null ? questions.size() : 0;
         return TestResponse.builder()
                 .id(test.getId())
                 .testId(test.getTestId())
@@ -47,8 +52,10 @@ public class TestResponse {
                 .description(test.getDescription())
                 .pdfUrl(test.getPdfUrl())
                 .durationMinutes(test.getDurationMinutes())
+                .totalMarks(test.getTotalMarks() != null ? test.getTotalMarks() : count)
+                .cutOff(test.getCutOff())
                 .status(test.getStatus())
-                .questionCount(questions != null ? questions.size() : 0)
+                .questionCount(count)
                 .createdAt(test.getCreatedAt())
                 .updatedAt(test.getUpdatedAt())
                 .questions(questions)

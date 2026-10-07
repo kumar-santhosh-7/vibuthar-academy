@@ -37,6 +37,13 @@ public class TestController {
         return ResponseEntity.ok(ApiResponse.ok("Test fetched successfully", response));
     }
 
+    @PostMapping("/{testId}/start")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<TestResultResponse>> startTest(@PathVariable String testId) {
+        TestResultResponse response = testService.startTest(testId);
+        return ResponseEntity.ok(ApiResponse.ok("Test started successfully", response));
+    }
+
     @PostMapping("/{testId}/submit")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<TestResultResponse>> submitTest(

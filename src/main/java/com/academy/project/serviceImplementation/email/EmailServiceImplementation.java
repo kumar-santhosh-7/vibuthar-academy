@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Value;
 
 
-@Service
+// @Service // SMTP mail temporarily disabled
 @RequiredArgsConstructor
 public class EmailServiceImplementation implements IntrestEmailService {
 

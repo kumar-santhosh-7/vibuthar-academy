@@ -17,4 +17,10 @@ public class CreateTestRequest {
 
     /** Time limit in minutes; optional. */
     private Integer durationMinutes;
+
+    /** Total marks for the test; optional (defaults to question count). */
+    private Integer totalMarks;
+
+    /** Minimum marks to pass; optional. */
+    private Integer cutOff;
 }

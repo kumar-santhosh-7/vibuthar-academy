@@ -21,6 +21,12 @@ public interface TestService {
 
     TestResponse addQuestions(String testId, AddQuestionsRequest request);
 
+    /** Empty/sample Excel template for bulk question upload. */
+    byte[] downloadSampleQuestionsExcel();
+
+    /** Import questions from filled sample Excel. */
+    TestResponse importQuestionsFromExcel(String testId, MultipartFile excelFile);
+
     void deleteQuestion(String testId, Long questionId);
 
     PagedResponse<TestResponse> listTests(TestStatus status, String search, int page, int size);
@@ -30,6 +36,9 @@ public interface TestService {
     PagedResponse<TestResponse> listPublishedTests(String search, int page, int size);
 
     TestResponse getTestForStudent(String testId);
+
+    /** Starts the timer for the current student. Call before taking the test. */
+    TestResultResponse startTest(String testId);
 
     TestResultResponse submitTest(String testId, SubmitTestRequest request);
 
