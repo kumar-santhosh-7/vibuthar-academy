@@ -2,9 +2,17 @@ package com.academy.project.serviceImplementation.user;
 
 import com.academy.project.dto.response.UserResponse;
 import com.academy.project.dto.user.UpdateUserRequest;
+import com.academy.project.entity.test.TestAttempt;
 import com.academy.project.entity.user.User;
+import com.academy.project.entity.user.UserRole;
 import com.academy.project.exception.ApiException;
+import com.academy.project.repository.payment.CoursePaymentRepository;
+import com.academy.project.repository.subscription.CourseSubscriptionRepository;
+import com.academy.project.repository.test.AttemptAnswerRepository;
+import com.academy.project.repository.test.TestAttemptRepository;
 import com.academy.project.repository.user.UserRepository;
+import com.academy.project.repository.user.UserSessionRepository;
+import com.academy.project.repository.video.VideoWatchProgressRepository;
 import com.academy.project.security.SecurityUtils;
 import com.academy.project.service.user.UserService;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +21,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Objects;
 
 @Service
@@ -20,6 +29,12 @@ import java.util.Objects;
 public class UserServiceImplementation implements UserService {
 
     private final UserRepository userRepository;
+    private final UserSessionRepository userSessionRepository;
+    private final CourseSubscriptionRepository courseSubscriptionRepository;
+    private final CoursePaymentRepository coursePaymentRepository;
+    private final VideoWatchProgressRepository videoWatchProgressRepository;
+    private final TestAttemptRepository testAttemptRepository;
+    private final AttemptAnswerRepository attemptAnswerRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -58,6 +73,37 @@ public class UserServiceImplementation implements UserService {
         user.setAddress(trimToNull(request.getAddress()));
 
         return UserResponse.fromEntity(userRepository.save(user));
+    }
+
+    @Override
+    @Transactional
+    public void deleteUser(String userId) {
+        String currentUserId = requireAuthenticatedUserId();
+
+        if (Objects.equals(currentUserId, userId)) {
+            throw ApiException.badRequest("You cannot delete your own account");
+        }
+
+        User user = userRepository.findByUserId(userId)
+                .orElseThrow(() -> ApiException.notFound("User not found"));
+
+        if (user.getRole() == UserRole.ADMIN) {
+            throw ApiException.forbidden("Admin accounts cannot be deleted");
+        }
+
+        List<TestAttempt> attempts = testAttemptRepository.findByUserId(userId);
+        if (!attempts.isEmpty()) {
+            attemptAnswerRepository.deleteByAttemptIdIn(
+                    attempts.stream().map(TestAttempt::getId).toList()
+            );
+            testAttemptRepository.deleteByUserId(userId);
+        }
+
+        videoWatchProgressRepository.deleteByUserId(userId);
+        coursePaymentRepository.deleteByUserId(userId);
+        courseSubscriptionRepository.deleteByUserId(userId);
+        userSessionRepository.deleteByUserId(userId);
+        userRepository.delete(user);
     }
 
     private void requireCanUpdate(String targetUserId) {

@@ -7,6 +7,7 @@ import com.academy.project.dto.response.PagedResponse;
 import com.academy.project.enums.EmailStatus;
 import com.academy.project.service.intrest.InterestService;
 import com.academy.project.service.member.MemberService;
+import com.academy.project.service.user.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -20,6 +21,7 @@ public class AdminMemberController {
 
     private final InterestService interestService;
     private final MemberService memberService;
+    private final UserService userService;
 
     @GetMapping("/interests")
     @PreAuthorize("hasAnyRole('ADMIN','TRAINER')")
@@ -58,5 +60,12 @@ public class AdminMemberController {
                 search, page, size
         );
         return ResponseEntity.ok(ApiResponse.ok("Non-subscribed members fetched successfully", response));
+    }
+
+    @DeleteMapping("/users/{userId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> deleteUser(@PathVariable String userId) {
+        userService.deleteUser(userId);
+        return ResponseEntity.ok(ApiResponse.ok("User deleted successfully", null));
     }
 }

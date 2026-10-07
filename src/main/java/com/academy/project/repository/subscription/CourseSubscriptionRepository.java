@@ -58,4 +58,6 @@ public interface CourseSubscriptionRepository extends JpaRepository<CourseSubscr
     BigDecimal sumPaidAmount(@Param("courseId") String courseId);
 
     void deleteByCourseId(String courseId);
+
+    void deleteByUserId(String userId);
 }

@@ -8,4 +8,6 @@ public interface UserService {
     UserResponse getCurrentUserProfile();
 
     UserResponse updateUser(String userId, UpdateUserRequest request);
+
+    void deleteUser(String userId);
 }
